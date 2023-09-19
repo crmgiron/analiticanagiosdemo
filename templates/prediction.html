@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Actualizando la CDN de Bootstrap -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title>Predicciones del Sistema</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #343a40;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem; /* Aumentamos el tamaño de la fuente */
+        }
+    
+        .form-container {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            width: 70%; /* Aumentamos el ancho del contenedor */
+            max-width: 600px; /* Establecemos un ancho máximo */
+        }
+    
+        h2 {
+            color: #00BCD4;
+            margin-bottom: 25px;
+            font-size: 2rem; /* Aumentamos el tamaño de la fuente del título */
+        }
+    
+        .form-control, .form-select {
+            border-radius: 0;
+            border: 1px solid #00BCD4;
+            background: transparent;
+            color: white;
+            height: 50px; /* Aumentamos la altura de los campos de entrada */
+        }
+    
+        .btn-primary {
+            width: 100%;
+            border-radius: 0;
+            background-color: #00BCD4;
+            border: none;
+            padding: 15px;
+        }
+    
+        label {
+            color: #00BCD4;
+            margin-bottom: 10px; /* Añadimos margen inferior a las etiquetas */
+        }
+    
+        i { /* Ajustes para los íconos */
+            margin-right: 8px;
+            font-size: 1.2rem; /* Aumentamos el tamaño del ícono */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="form-container"> 
+        <!-- Botón para regresar al inicio -->
+        <a href="http://192.168.50.45:8000/" class="btn btn-primary mb-5" style="margin-left:auto; margin-right:auto; display:block;"><i class="fas fa-home"></i> Regresar al inicio</a>
+        <h2 class="text-center"><i class="fas fa-server"></i> Generar predicción</h2>
+
+        <form action="/predict_system" method="post">
+            <div class="form-group">
+                <label for="metric"><i class="fas fa-database"></i> Métrica:</label>
+                <select name="metric" id="metric" class="form-control">
+                    <option value="disk">Disco</option>
+                    <option value="cpu">CPU</option>
+                    <option value="ram">RAM</option>
+                </select>
+            </div>
+
+            <div class="form-group mt-3">
+                <label for="hours_ahead"><i class="fas fa-clock"></i> Horas por adelantado:</label>
+                <input type="number" name="hours_ahead" id="hours_ahead" class="form-control" value="24">
+            </div>
+
+            <div class="form-group mt-3">
+                <label for="host"><i class="fas fa-network-wired"></i> Host:</label>
+                <select name="host" id="host" class="form-control">
+                    {% for h in hosts %}
+                        <option value="{{ h }}">{{ h }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mt-4"> 
+                <input type="submit" value="Generar" class="btn btn-primary">
+            </div>
+        </form>
+    </div>
+    {% if graph %}
+    <div class="graph-container">
+        {{ graph | safe }}
+    </div>
+    {% endif %}
+</body>
+</html>
+
+
+

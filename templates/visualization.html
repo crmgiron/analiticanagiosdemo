@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title>Historial de cargas</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #343a40;
+        }
+
+        .container {
+            border-radius: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+        }
+
+        h2, h3 {
+            color: #00BCD4;
+            border-bottom: 2px solid #00BCD4;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .form-control, .form-select {
+            border-radius: 0;
+            border: 2px solid #00BCD4;
+            background: transparent;
+            color: white;
+        }
+
+        .btn-primary {
+            border-radius: 0;
+            background-color: #00BCD4;
+            border-color: #00BCD4;
+            padding: 10px 20px;
+        }
+
+        .card {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid #00BCD4;
+        }
+
+        .card-header {
+            background-color: #00BCD4;
+            color: white;
+        }
+
+        .card-body {
+            color: white;
+        }
+
+        /* Estilo para la tabla con scroll */
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .table-container .table {
+            width: 100%;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <!-- Botón para regresar al inicio -->
+        <a href="http://192.168.50.45:8000/" class="btn btn-primary mb-5" style="margin-left:auto; margin-right:auto; display:block;"><i class="fas fa-home"></i> Regresar al inicio</a>
+        <!-- Condición para el título -->
+        {% if is_arima %}
+            <h2 class="text-center mb-5"><i class="fas fa-hdd"></i> Predicción ARIMA de Uso de CPU</h2>
+        {% else %}
+            <h2 class="text-center mb-5"><i class="fas fa-hdd"></i> Historial de cargas de CPU</h2>
+        {% endif %}
+        
+        <div id="plotly-div-id">
+            {{ graph | safe }}
+        </div>
+
+        <!-- Condición para mostrar u ocultar "Detalles de la Visualización" -->
+        {% if not is_arima %}
+        <div class="mt-5">
+            <h3>Detalles de la Visualización </h3>
+            
+            <div class="row">
+                {% for key, value in details_info.items() %}
+                    <div class="col">
+                        <div class="card bg-dark text-white border-0">
+                            <div class="card-header bg-transparent border-bottom border-primary">
+                                <h5 class="card-title text-primary"><i class="fas fa-info-circle"></i> {{ key }}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">{{ value }}</p>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <button id="showDataBtn" class="btn btn-primary mt-4">Más Detalles</button>
+        </div>
+        {% endif %}
+
+    </div>
+    <script>
+        var mainData = {{ data|tojson|safe }};
+        
+        document.getElementById("showDataBtn").addEventListener("click", function() {
+            var newWindow = window.open("", "Data Window", "width=800,height=600,scrollbars=yes");
+            var isRamData = mainData[0].GB_Used !== undefined;
+            var isDiskData = mainData[0].GB_Free !== undefined;
+            var tableHtml = `
+                <link href='https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css' rel='stylesheet'>
+                <style>
+                    body {
+                        background-color: #343a40;
+                    }
+                    .container {
+                        border-radius: 15px;
+                        background-color: rgba(255, 255, 255, 0.1);
+                        padding: 20px;
+                    }
+                    .table-container {
+                        max-height: 400px;
+                        overflow-y: auto;
+                    }
+                </style>
+                <div class='container mt-4'>
+                    <h2 class='text-center mb-4' style='color: #00BCD4;'>${isRamData ? "Memoria RAM Usada (GB)" : (isDiskData ? "Espacio Libre en Disco (GB)" : "Uso de CPU (%)")}</h2>
+                    <div class='table-container'>
+                        <table class='table table-dark table-bordered'>
+                            <thead><tr><th>Time</th><th>${isRamData ? "Memoria RAM (GB)" : (isDiskData ? "Espacio Libre (GB)" : "Uso de CPU (%)")}</th></tr></thead><tbody>`;
+            
+            mainData.forEach(function(row) {
+                var valueToShow = isRamData ? row.GB_Used : (isDiskData ? row.GB_Free : row.Percent_Used);
+                tableHtml += `<tr><td>${row.time}</td><td>${valueToShow}</td></tr>`;
+            });
+
+            tableHtml += `</tbody></table></div>
+                <button onclick='downloadCSV()' class='btn btn-primary mt-4'>Descargar CSV</button>
+            </div>`;
+            
+            newWindow.document.write(tableHtml);
+
+            newWindow.document.write('<script>');
+            newWindow.document.write(`var data = ${JSON.stringify(mainData)};`);
+            newWindow.document.write(`
+                function downloadCSV() {
+                    var csvContent = "data:text/csv;charset=utf-8,"; 
+                    csvContent += "Time,${isRamData ? "Memoria RAM (GB)" : (isDiskData ? "Espacio Libre (GB)" : "Uso de CPU (%)")}\\n"; 
+                    data.forEach(function(row) {
+                        var value = ${isRamData ? "row.GB_Used" : (isDiskData ? "row.GB_Free" : "row.Percent_Used")};
+                        csvContent += row.time + "," + value + "\\n";
+                    });
+                    var encodedUri = encodeURI(csvContent);
+                    var link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", "data.csv");
+                    document.body.appendChild(link);
+                    link.click();
+                }
+            `);
+            newWindow.document.write('<\/script>');
+        });
+    </script>
+
+
+</body>
+</html>
