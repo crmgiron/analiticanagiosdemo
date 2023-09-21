@@ -74,12 +74,20 @@
         <!-- Botón para regresar al inicio -->
         <a href="http://192.168.50.45:8000/" class="btn btn-primary mb-5" style="margin-left:auto; margin-right:auto; display:block;"><i class="fas fa-home"></i> Regresar al inicio</a>
         <!-- Condición para el título -->
-        {% if is_arima %}
-            <h2 class="text-center mb-5"><i class="fas fa-hdd"></i> Predicción ARIMA de Uso de CPU</h2>
+        {% if metric_type == "arima" %}
+        <h2 class="text-center mb-5"><i class="fas fa-hdd"></i> Predicción ARIMA de Uso de CPU</h2>
+        {% elif metric_type == "interfazred" %}
+        <h2 class="text-center mb-5"><i class="fas fa-network-wired"></i> Historial de Uso de la Interfaz de Red</h2>
+        {% elif metric_type == "cpu" %}
+        <h2 class="text-center mb-5"><i class="fas fa-microchip"></i> Historial de cargas de CPU</h2>
+        {% elif metric_type == "disco" %}
+        <h2 class="text-center mb-5"><i class="fas fa-hdd"></i> Historial de uso del disco</h2>
+        {% elif metric_type == "ram" %}
+        <h2 class="text-center mb-5"><i class="fas fa-memory"></i> Historial de uso de RAM</h2>
         {% else %}
-            <h2 class="text-center mb-5"><i class="fas fa-hdd"></i> Historial de cargas de CPU</h2>
+        <h2 class="text-center mb-5">Historial de cargas</h2>
         {% endif %}
-        
+
         <div id="plotly-div-id">
             {{ graph | safe }}
         </div>
@@ -115,6 +123,7 @@
             var newWindow = window.open("", "Data Window", "width=800,height=600,scrollbars=yes");
             var isRamData = mainData[0].GB_Used !== undefined;
             var isDiskData = mainData[0].GB_Free !== undefined;
+            var isInterfazRedData = mainData[0].Bytes_Sent !== undefined;
             var tableHtml = `
                 <link href='https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css' rel='stylesheet'>
                 <style>
@@ -132,13 +141,14 @@
                     }
                 </style>
                 <div class='container mt-4'>
-                    <h2 class='text-center mb-4' style='color: #00BCD4;'>${isRamData ? "Memoria RAM Usada (GB)" : (isDiskData ? "Espacio Libre en Disco (GB)" : "Uso de CPU (%)")}</h2>
+                    <h2 class='text-center mb-4' style='color: #00BCD4;'>${isRamData ? "Memoria RAM Usada (GB)" : (isDiskData ? "Espacio Libre en Disco (GB)" :  (isInterfazRedData ? "Interfaz de Red (Bytes Enviados/Recibidos)" : "Uso de CPU (%)"))}</h2>
                     <div class='table-container'>
                         <table class='table table-dark table-bordered'>
-                            <thead><tr><th>Time</th><th>${isRamData ? "Memoria RAM (GB)" : (isDiskData ? "Espacio Libre (GB)" : "Uso de CPU (%)")}</th></tr></thead><tbody>`;
+                            <thead><tr><th>Time</th><th>${isRamData ? "Memoria RAM (GB)" : (isDiskData ? "Espacio Libre (GB)" : (isInterfazRedData ? "Bytes Enviados" : "Uso de CPU (%)"))}</th></tr></thead><tbody>`;
             
             mainData.forEach(function(row) {
-                var valueToShow = isRamData ? row.GB_Used : (isDiskData ? row.GB_Free : row.Percent_Used);
+                var valueToShow = isRamData ? row.GB_Used : (isDiskData ? row.GB_Free : (isInterfazRedData ? row.Bytes_Sent : row.Percent_Used));
+                var extraValue = isInterfazRedData ? `<td>${row.Bytes_Recv}</td>` : "";
                 tableHtml += `<tr><td>${row.time}</td><td>${valueToShow}</td></tr>`;
             });
 
@@ -151,25 +161,28 @@
             newWindow.document.write('<script>');
             newWindow.document.write(`var data = ${JSON.stringify(mainData)};`);
             newWindow.document.write(`
-                function downloadCSV() {
-                    var csvContent = "data:text/csv;charset=utf-8,"; 
-                    csvContent += "Time,${isRamData ? "Memoria RAM (GB)" : (isDiskData ? "Espacio Libre (GB)" : "Uso de CPU (%)")}\\n"; 
-                    data.forEach(function(row) {
-                        var value = ${isRamData ? "row.GB_Used" : (isDiskData ? "row.GB_Free" : "row.Percent_Used")};
-                        csvContent += row.time + "," + value + "\\n";
-                    });
-                    var encodedUri = encodeURI(csvContent);
-                    var link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", "data.csv");
-                    document.body.appendChild(link);
-                    link.click();
-                }
-            `);
+            var isInterfazRedData = ${isInterfazRedData};
+            var isRamData = ${isRamData};
+            var isDiskData = ${isDiskData};
+    function downloadCSV() {
+        var csvContent = "data:text/csv;charset=utf-8,"; 
+        csvContent += "Time,${isRamData ? "Memoria RAM (GB)" : (isDiskData ? "Espacio Libre (GB)" : (isInterfazRedData ? "Bytes Enviados,Bytes Recibidos" : "Uso de CPU (%)"))}\\n"; 
+        data.forEach(function(row) {
+            var value1 = ${isRamData ? "row.GB_Used" : (isDiskData ? "row.GB_Free" : (isInterfazRedData ? "row.Bytes_Sent" : "row.Percent_Used"))};
+            var value2 = ${isInterfazRedData ? "row.Bytes_Recv" : "''"};
+            csvContent += row.time + "," + value1 + (isInterfazRedData ? "," + value2 : "") + "\\n";
+        });
+        var encodedUri = encodeURI(csvContent);
+        var link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "data.csv");
+        document.body.appendChild(link);
+        link.click();
+    }
+`);
+
             newWindow.document.write('<\/script>');
         });
     </script>
-
-
 </body>
 </html>

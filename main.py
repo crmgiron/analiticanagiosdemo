@@ -32,11 +32,105 @@ templates = Jinja2Templates(directory="C:\\Users\\cmiranda\\Desktop\\Temporal\\U
 
 @app.get("/")
 def read_root(request: Request):
-    # Aquí, idealmente, consultarías tu base de datos para obtener los hosts únicos.
-    # Por simplicidad, supondré que tienes una lista fija. Cámbialo según sea necesario.
     available_hosts = ["Laptop", "Servidor"]
     return templates.TemplateResponse("index.html", {"request": request, "hosts": available_hosts})
 
+###EXTRACCION PARA INTERFAZ DE RED
+def extract_interfazred_info(output_str):
+    bytes_sent_match = re.search(r'Bytes_sent was (\d+(\.\d+)?) GiB', output_str)
+    bytes_recv_match = re.search(r'Bytes_recv: (\d+(\.\d+)?) GiB', output_str)
+
+    bytes_sent_gib = float(bytes_sent_match.group(1)) if bytes_sent_match else None
+    bytes_recv_gib = float(bytes_recv_match.group(1)) if bytes_recv_match else None
+
+    return bytes_sent_gib, bytes_recv_gib
+##ENDPOIN PARA LA EXTRACCION DE INTERFAZ DE RED
+@app.get("/nagios/interfazred_data_processed")
+def get_processed_interfazred_data():
+    connection = mysql.connector.connect(
+        host='192.168.50.83',
+        user='nagios',
+        password='Pait.2023$',
+        database='nagios_data'
+    )
+    query = """
+    SELECT o.name1 as host, o.name2 as service, s.output, s.start_time 
+    FROM servicechecks s
+    JOIN objects o ON s.service_object_id = o.object_id
+    WHERE o.name2 = 'Interfaz Wi-Fi';
+    """
+    df = pd.read_sql(query, connection)
+    connection.close()
+    if df.empty:
+        raise HTTPException(status_code=404, detail="No data found")
+
+    df[['Bytes_Sent', 'Bytes_Recv']] = df['output'].apply(lambda x: extract_interfazred_info(x)).apply(pd.Series)
+    df = df.drop(columns=['output'])
+
+    # Eliminar las filas con NaN en Bytes_Sent y Bytes_Recv
+    df.dropna(subset=['Bytes_Sent', 'Bytes_Recv'], inplace=True)
+
+    data_list = df.to_dict(orient="records")
+    influx_data = []
+    for data in data_list:
+        influx_entry = {
+            "measurement": "usointerfazred",
+            "time": data["start_time"],
+            "tags": {
+                "host": data["host"],
+                "service": data["service"]
+            },
+            "fields": {
+                "Bytes_Sent": data["Bytes_Sent"],
+                "Bytes_Recv": data["Bytes_Recv"]
+            }
+        }
+        influx_data.append(influx_entry)
+
+    client.write_points(influx_data)
+
+    return data_list
+
+@app.get("/visualize_interfazred", response_class=HTMLResponse)
+def visualize_interfazred(request: Request, host: str = None):
+    query = 'SELECT * FROM usointerfazred'
+    resultados = client.query(query)
+    df = pd.DataFrame(list(resultados.get_points()))
+
+    details_info = {}
+    if host:
+        details_info["Host seleccionado"] = host
+        df = df[df['host'] == host]  # Filtra el dataframe basado en el host.
+        details_info["Eventos de monitoreo"] = str(len(df))
+    else:
+        details_info["Mensaje"] = "No se proporcionó información"
+        details_info["Eventos de monitoreo"] = "N/A"
+
+    df['time'] = pd.to_datetime(df['time'], format='ISO8601')
+    df_resampled_sent = df.set_index('time')['Bytes_Sent'].resample('H').mean().interpolate()
+    df_resampled_recv = df.set_index('time')['Bytes_Recv'].resample('H').mean().interpolate()
+    df['time'] = df['time'].apply(lambda x: x.strftime('%Y-%m-%d %H:%M:%S'))
+
+    # Generar gráfico con Plotly
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df_resampled_sent.index, y=df_resampled_sent.values, mode='lines+markers', name='Bytes Enviados'))
+    fig.add_trace(go.Scatter(x=df_resampled_recv.index, y=df_resampled_recv.values, mode='lines+markers', name='Bytes Recibidos'))
+    fig.update_layout(
+        title='Interfaz a lo largo del Tiempo',
+        xaxis_title='Tiempo',
+        yaxis_title='Uso de la Interfaz (GiB)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white')
+    )
+    graph_html = fig.to_html(full_html=False)
+    return templates.TemplateResponse("visualization.html", {
+        "request": request,
+        "graph": graph_html,
+        "details_info": details_info,
+        "data": df.to_dict('records'),
+        "metric_type": "interfazred"
+    })
 
 ####EXTRACCION PARA DISCO
 def extract_disk_info(output_str):
@@ -263,7 +357,8 @@ def visualize_disk(request: Request, host: str = None):
         "request": request, 
         "graph": graph_html, 
         "details_info": details_info,
-        "data": df.to_dict('records')
+        "data": df.to_dict('records'),
+        "metric_type": "disco"
     })
 
 ##Grafica visualizar RAM
@@ -299,7 +394,8 @@ def visualize_ram(request: Request, host: str = None):
         "request": request, 
         "graph": graph_html, 
         "details_info": details_info,
-        "data": df.to_dict('records')
+        "data": df.to_dict('records'),
+        "metric_type": "ram"
     })    
 
 
@@ -340,7 +436,8 @@ def visualize_cpu(request: Request, host: str = None):
         "request": request, 
         "graph": graph_html, 
         "details_info": details_info,
-        "data": df.to_dict('records')
+        "data": df.to_dict('records'),
+        "metric_type": "cpu"
     })
 
 ####ARIMA DISCO

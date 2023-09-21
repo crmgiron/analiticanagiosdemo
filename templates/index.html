@@ -154,6 +154,25 @@ label {
     </div>
 </div>
 
+<!-- Card 1: Uso de Disco con opción ARIMA -->
+<div class="col-md-4 mb-4">
+    <div class="card">
+        <div class="card-header">
+            Interfaz De Red
+        </div>
+        <div class="card-body text-center">
+            <h5 class="card-title"><i class="fas fa-hdd fa-2x mb-3 text-primary"></i> Uso de Interfaz</h5>
+            <select class="form-control mb-3" onchange="location = this.value;">
+                <option value="" disabled selected>Seleccione un dispositivo</option>
+                {% for h in hosts %}
+                    <option value="http://192.168.50.45:8000/visualize_interfazred?host={{ h }}">{{ h }}</option>
+                {% endfor %}
+            </select>
+            <a href="/visualize_arima_disk" class="btn btn-primary btn-block">Predicción ARIMA</a>
+        </div>
+    </div>
+</div>
+
 <!-- Card 4: Predicción del Sistema -->
 <div class="col-md-4 mb-4">
     <div class="card">
