@@ -131,6 +131,76 @@ def visualize_interfazred(request: Request, host: str = None):
         "data": df.to_dict('records'),
         "metric_type": "interfazred"
     })
+#### ARIMA PARA INTERFAZ DE RED
+@app.get("/visualize_arima_interfazred", response_class=HTMLResponse)
+def visualize_arima_interfazred(request: Request, host: str = None):
+    query = 'SELECT * FROM usointerfazred'
+    resultados = client.query(query)
+    df = pd.DataFrame(list(resultados.get_points()))
+    
+    details_info = {}
+    if host:
+        details_info["Host seleccionado"] = host
+        df = df[df['host'] == host]  # Filtra el dataframe basado en el host.
+        details_info["Eventos de monitoreo"] = str(len(df))
+    else:
+        details_info["Mensaje"] = "No se proporcionó información"
+        details_info["Eventos de monitoreo"] = "N/A"
+        
+    df['time'] = pd.to_datetime(df['time'], format='ISO8601')
+    
+    # Para Bytes_Sent
+    df_resampled_sent = df.set_index('time')['Bytes_Sent'].resample('H').mean().interpolate()
+    train_size_sent = int(len(df_resampled_sent) * 0.8)
+    train_sent, test_sent = df_resampled_sent[0:train_size_sent], df_resampled_sent[train_size_sent:]
+
+    model_sent = ARIMA(train_sent, order=(5,1,0))
+    model_fit_sent = model_sent.fit()
+    forecast_sent = model_fit_sent.forecast(steps=len(test_sent))
+    
+    rmse_sent = np.sqrt(mean_squared_error(test_sent, forecast_sent))
+    details_info["RMSE Bytes Enviados"] = str(rmse_sent)
+    
+    # Para Bytes_Recv
+    df_resampled_recv = df.set_index('time')['Bytes_Recv'].resample('H').mean().interpolate()
+    train_size_recv = int(len(df_resampled_recv) * 0.8)
+    train_recv, test_recv = df_resampled_recv[0:train_size_recv], df_resampled_recv[train_size_recv:]
+
+    model_recv = ARIMA(train_recv, order=(5,1,0))
+    model_fit_recv = model_recv.fit()
+    forecast_recv = model_fit_recv.forecast(steps=len(test_recv))
+    
+    rmse_recv = np.sqrt(mean_squared_error(test_recv, forecast_recv))
+    details_info["RMSE Bytes Recibidos"] = str(rmse_recv)
+    
+    # Generar gráfico con Plotly
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=test_sent.index, y=test_sent.values, mode='lines+markers', name='Bytes Enviados Reales'))
+    fig.add_trace(go.Scatter(x=test_sent.index, y=forecast_sent, mode='lines+markers', name='Predicciones Bytes Enviados ARIMA'))
+    fig.add_trace(go.Scatter(x=test_recv.index, y=test_recv.values, mode='lines+markers', name='Bytes Recibidos Reales'))
+    fig.add_trace(go.Scatter(x=test_recv.index, y=forecast_recv, mode='lines+markers', name='Predicciones Bytes Recibidos ARIMA'))
+    
+    fig.update_layout(
+        title=f'Predicción ARIMA de Uso de Interfaz de Red (RMSE Env: {rmse_sent:.2f}, RMSE Recv: {rmse_recv:.2f})',
+        xaxis_title='Tiempo',
+        yaxis_title='Uso de la Interfaz (GiB)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white')
+    )
+    
+    graph_html = fig.to_html(full_html=False)
+
+    # Convertir dataframe a formato JSON seguro
+    data_for_template = dataframe_to_json_safe(df_resampled_sent.reset_index())  # Ajusta según lo necesario
+    
+    return templates.TemplateResponse("visualization.html", {
+        "request": request,
+        "graph": graph_html,
+        "details_info": details_info,
+        "data": data_for_template,
+        "is_arima": True  # Asegúrate de que tu template pueda manejar este caso
+    })
 
 ####EXTRACCION PARA DISCO
 def extract_disk_info(output_str):
@@ -742,9 +812,10 @@ async def show_predict_system_form(request: Request):
     #return templates.TemplateResponse("prediction.html", {"request": request, "hosts": hosts})
 
 @app.post("/predict_system", response_class=HTMLResponse)
-def predict_system(request: Request, metric: str = Form(...), hours_ahead: int = Form(...), host: str = Form(...)):
-    if metric not in ["disk", "cpu", "ram"]:
-        error_msg = "Invalid metric selected"
+def predict_system(request: Request, metric: str = Form(...), byteType: str = Form(None), hours_ahead: int = Form(...), host: str = Form(...)):
+    error_msg = ""  # Inicializamos error_msg con un string vacío
+    if metric not in ["disk", "cpu", "ram", "interfazred"]:
+        error_msg = "Métrica inválida seleccionada"
         return templates.TemplateResponse("error.html", {"request": request, "error": error_msg})
 
     # Seleccionamos la métrica desde la base de datos
@@ -756,10 +827,21 @@ def predict_system(request: Request, metric: str = Form(...), hours_ahead: int =
         query = 'SELECT * FROM usocpu'
         column_to_predict = 'Percent_Used'
         yaxis_title = "Uso de CPU (%)" 
-    else:  # RAM
+    elif metric == "ram":
         query = 'SELECT * FROM usomemoria'
         column_to_predict = 'GB_Used'
         yaxis_title = "Uso de Memoria RAM (GB)"
+    elif metric == "interfazred":  # Para interfazred usamos byteType
+        if byteType not in ["Bytes_Sent", "Bytes_Recv"]:
+            error_msg = "Tipo de bytes inválido seleccionado"
+            return templates.TemplateResponse("error.html", {"request": request, "error": error_msg})
+        query = 'SELECT * FROM usointerfazred'
+        column_to_predict = byteType  # Usamos el tipo de bytes seleccionado aquí
+        yaxis_title = f"{byteType} (Bytes)"
+    else:  # Esta parte del código no debería ser alcanzada, pero está aquí por precaución
+        error_msg = "Métrica no reconocida."
+        return templates.TemplateResponse("error.html", {"request": request, "error": error_msg})
+    
 
     resultados = client.query(query)
     df = pd.DataFrame(list(resultados.get_points()))

@@ -5,12 +5,22 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
     <!-- Actualizando la CDN de Bootstrap -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <title>Predicciones del Sistema</title>
+    <script>
+        function showByteTypeSelection() {
+            var metricSelection = document.getElementById("metric").value;
+            var byteTypeSelection = document.getElementById("byteTypeSelection");
+            if (metricSelection === "interfazred") {
+                byteTypeSelection.style.display = "block";
+            } else {
+                byteTypeSelection.style.display = "none";
+            }
+        }
+    </script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -67,20 +77,26 @@
 
 <body>
 
-    <div class="form-container"> 
-        <!-- Botón para regresar al inicio -->
+    <div class="form-container">
         <a href="http://192.168.50.45:8000/" class="btn btn-primary mb-5" style="margin-left:auto; margin-right:auto; display:block;"><i class="fas fa-home"></i> Regresar al inicio</a>
         <h2 class="text-center"><i class="fas fa-server"></i> Generar predicción</h2>
-
         <form action="/predict_system" method="post">
             <div class="form-group">
                 <label for="metric"><i class="fas fa-database"></i> Métrica:</label>
-                <select name="metric" id="metric" class="form-control">
+                <select name="metric" id="metric" class="form-control" onchange="showByteTypeSelection()">
                     <option value="disk">Disco</option>
                     <option value="cpu">CPU</option>
                     <option value="ram">RAM</option>
+                    <option value="interfazred">Interfaz de Red</option>
                 </select>
             </div>
+            <div class="form-group mt-3" id="byteTypeSelection" style="display:none;">
+                <label for="byteType"><i class="fas fa-exchange-alt"></i> Tipo de Bytes:</label>
+                <select name="byteType" id="byteType" class="form-control">
+                    <option value="Bytes_Sent">Bytes Enviados</option>
+                    <option value="Bytes_Recv">Bytes Recibidos</option>
+                </select>
+            </div> 
 
             <div class="form-group mt-3">
                 <label for="hours_ahead"><i class="fas fa-clock"></i> Horas por adelantado:</label>
