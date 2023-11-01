@@ -32,9 +32,12 @@ templates = Jinja2Templates(directory="C:\\Users\\cmiranda\\Desktop\\Temporal\\U
 
 @app.get("/")
 def read_root(request: Request):
-    available_hosts = ["Laptop", "Servidor"]
+#    available_hosts = ["Laptop", "Servidor"]
+#    return templates.TemplateResponse("index.html", {"request": request, "hosts": available_hosts})
+    query = 'SHOW TAG VALUES FROM "espaciodisco" WITH KEY = "host"'
+    result = client.query(query)
+    available_hosts = [data['value'] for data in list(result.get_points())]
     return templates.TemplateResponse("index.html", {"request": request, "hosts": available_hosts})
-
 ###EXTRACCION PARA INTERFAZ DE RED
 def extract_interfazred_info(output_str):
     bytes_sent_match = re.search(r'Bytes_sent was (\d+(\.\d+)?) GiB', output_str)
@@ -216,7 +219,6 @@ def safe_disk_extract(row):
     except ValueError:
         print(f"Error processing row: {row}")
         return None
-
 @app.get("/nagios/disk_space_processed")
 def get_processed_disk_space_data():
     connection = mysql.connector.connect(
@@ -468,8 +470,6 @@ def visualize_ram(request: Request, host: str = None):
         "metric_type": "ram"
     })    
 
-
-
 ##Grafica visualizar CPU
 @app.get("/visualize_cpu", response_class=HTMLResponse)
 def visualize_cpu(request: Request, host: str = None):
@@ -515,8 +515,9 @@ def visualize_cpu(request: Request, host: str = None):
 def dataframe_to_json_safe(df):
     return df.applymap(lambda x: str(x) if isinstance(x, (pd.Timestamp, pd.Timedelta)) else x).to_dict(orient='records')
 @app.get("/visualize_arima_disk", response_class=HTMLResponse)
-def visualize_arima_disk(request: Request, host: str = None):
-    query = 'SELECT * FROM usodisco'  # Asegúrate de que esta tabla tiene los datos de uso del disco
+## ANTERIOR def visualize_arima_disk(request: Request, host: str = None):
+def visualize_arima_disk(request: Request, host: str):
+    query = 'SELECT * FROM espaciodisco'  # Asegúrate de que esta tabla tiene los datos de uso del disco
     resultados = client.query(query)
     df = pd.DataFrame(list(resultados.get_points()))
     details_info = {}  # Un diccionario para almacenar detalles de la visualización.
@@ -529,7 +530,7 @@ def visualize_arima_disk(request: Request, host: str = None):
         details_info["Mensaje"] = "No se proporcionó información"
         details_info["Eventos de monitoreo"] = "N/A"
     df['time'] = pd.to_datetime(df['time'], format='ISO8601')
-    df_resampled = df.set_index('time')['GB_Used'].resample('H').mean().interpolate()
+    df_resampled = df.set_index('time')['GB_Free'].resample('H').mean().interpolate()
     # Crear el DataFrame para visualización
     df_visualization = df_resampled.reset_index()
     df_visualization['time'] = df_visualization['time'].astype(str)
@@ -556,9 +557,9 @@ def visualize_arima_disk(request: Request, host: str = None):
     fig.add_trace(go.Scatter(x=test.index, y=test.values, mode='lines+markers', name='Datos reales'))
     fig.add_trace(go.Scatter(x=test.index, y=forecast, mode='lines+markers', name='Predicciones ARIMA'))
     fig.update_layout(
-        title=f'Predicción ARIMA de Uso de CPU (RMSE: {rmse:.2f})',
+        title=f'Predicción ARIMA de Uso de Disco (RMSE: {rmse:.2f})',
         xaxis_title='Tiempo',
-        yaxis_title='Uso de CPU (%)',
+        yaxis_title='Uso de Disco (GB)',
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white')
@@ -576,31 +577,6 @@ def visualize_arima_disk(request: Request, host: str = None):
         "data": data_for_template,
         "is_arima": True
     })
-    # Gráfica de los datos reales vs las predicciones
-    #plt.figure(figsize=(10, 6))
-    #plt.plot(test.index, test.values, label='Uso Real del Disco', color='blue')
-    #plt.plot(test.index, forecast, label='Predicciones ARIMA', color='red', alpha=0.7)
-    #plt.title(f'Predicción ARIMA vs Uso Real del Disco (RMSE: {rmse:.2f})')  # Añadido RMSE al título
-    #plt.xlabel('Tiempo')
-    #plt.ylabel('Uso de Disco (GB)')
-    #plt.legend()
-
-    #buf = io.BytesIO()
-    #plt.savefig(buf, format="png")
-    #plt.close()
-    #data = base64.b64encode(buf.getbuffer()).decode("utf8")
-    #buf.close()
-
-    #return f"""
-    #    <html>
-    #        <head>
-    #            <title>Predicción ARIMA de Uso de Disco</title>
-    #        </head>
-    #        <body>
-    #            <img src="data:image/png;base64,{data}" />
-    #        </body>
-    #    </html>"""
-
 ###ARIMA RAM
 def dataframe_to_json_safe(df):
     return df.applymap(lambda x: str(x) if isinstance(x, (pd.Timestamp, pd.Timedelta)) else x).to_dict(orient='records')
@@ -618,7 +594,7 @@ def visualize_arima_ram(request: Request, host: str = None):
         details_info["Mensaje"] = "No se proporcionó información"
         details_info["Eventos de monitoreo"] = "N/A"
     df['time'] = pd.to_datetime(df['time'], format='ISO8601')
-    df_resampled = df.set_index('time')['GB_Used'].resample('H').mean().interpolate()
+    df_resampled = df.set_index('time')['Percent_Used'].resample('H').mean().interpolate()
     
     train_size = int(len(df_resampled) * 0.8)
     train, test = df_resampled[0:train_size], df_resampled[train_size:]
@@ -629,31 +605,6 @@ def visualize_arima_ram(request: Request, host: str = None):
 
     rmse = np.sqrt(mean_squared_error(test, forecast))
     details_info["RMSE"] = str(rmse)
-
-    #plt.figure(figsize=(10, 6))
-    #plt.plot(test.index, test.values, label='Datos reales', color='blue')
-    #plt.plot(test.index, forecast, label='Predicciones ARIMA', color='red', alpha=0.7)
-    #plt.title(f'Predicción ARIMA vs Datos Reales (Uso de Memoria RAM - RMSE: {rmse:.2f})')
-    #plt.xlabel('Tiempo')
-    #plt.ylabel('Uso de Memoria RAM (GB)')
-    #plt.legend()
-
-    #buf = io.BytesIO()
-    #plt.savefig(buf, format="png")
-    #plt.close()
-    #data = base64.b64encode(buf.getbuffer()).decode("utf8")
-    #buf.close()
-
-    #return f"""
-    #    <html>
-    #        <head>
-    #            <title>Predicción ARIMA de Uso de Memoria RAM</title>
-    #        </head>
-    #        <body>
-    #            <img src="data:image/png;base64,{data}" />
-    #            <pre>{df.head()}</pre>
-    #        </body>
-    #    </html>"""
 # Generar gráfico con Plotly
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=test.index, y=test.values, mode='lines+markers', name='Datos reales'))
@@ -741,56 +692,6 @@ def visualize_arima_cpu(request: Request, host: str = None):
         "data": data_for_template,
         "is_arima": True
     })
-###ARIMA CPU
-#@app.get("/visualize_arima_cpu", response_class=HTMLResponse)
-#def visualize_arima_cpu(host: str = None):
-#    query = 'SELECT * FROM usocpu'
-#    resultados = client.query(query)
-#    df = pd.DataFrame(list(resultados.get_points()))
-#    if host:
-#        df = df[df['host'] == host]
-#    if 'time' in df.columns:
-#        df['time'] = pd.to_datetime(df['time'], format='ISO8601')
-#    else:
-#        print("Columna 'time' no encontrada en el DataFrame.")
-#    df_resampled = df.set_index('time')['Percent_Used'].resample('H').mean().interpolate()
-    
-
-#    train_size = int(len(df_resampled) * 0.8)
-#    train, test = df_resampled[0:train_size], df_resampled[train_size:]
-#
-#    model = ARIMA(train, order=(5,1,0))
-#    model_fit = model.fit()
-#    forecast = model_fit.forecast(steps=len(test))
-
-#    rmse = np.sqrt(mean_squared_error(test, forecast))
-#    print('RMSE:', rmse)
-
-#    plt.figure(figsize=(10, 6))
-#    plt.plot(test.index, test.values, label='Datos reales', color='blue')
-#    plt.plot(test.index, forecast, label='Predicciones ARIMA', color='red', alpha=0.7)
-#    plt.title(f'Predicción ARIMA de Uso de CPU (RMSE: {rmse:.2f})')
-#    plt.xlabel('Tiempo')
-#    plt.ylabel('Uso de CPU (%)')
-#    plt.legend()
-
-#    buf = io.BytesIO()
-#    plt.savefig(buf, format="png")
-#    plt.close()
-#    data = base64.b64encode(buf.getbuffer()).decode("utf8")
-#    buf.close()
-
-#    return f"""
-#        <html>
-#            <head>
-#                <title>Predicción ARIMA de Uso de CPU</title>
-#            </head>
-#            <body>
-#                <img src="data:image/png;base64,{data}" />
-#            </body>
-#        </html>"""
-
-   
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import numpy as np
 from pmdarima import auto_arima
@@ -802,14 +703,6 @@ def get_all_hosts():
 async def show_predict_system_form(request: Request):
     hosts = get_all_hosts()
     return templates.TemplateResponse("prediction.html", {"request": request, "hosts": hosts})
-    # Consulta a la base de datos para obtener todos los hosts únicos
-    #query = 'SHOW TAG VALUES FROM "espaciodisco" WITH KEY = "host"' # Puedes cambiar 'espaciodisco' por la tabla correcta si es diferente
-    #resultados = client.query(query)
-# Extrayendo los valores de los hosts de los resultados
-    #hosts = [host_value['value'] for host_value in resultados.get_points()]
-    #hosts = get_all_hosts()
-    #graph_html = fig.to_html(full_html=False)
-    #return templates.TemplateResponse("prediction.html", {"request": request, "hosts": hosts})
 
 @app.post("/predict_system", response_class=HTMLResponse)
 def predict_system(request: Request, metric: str = Form(...), byteType: str = Form(None), hours_ahead: int = Form(...), host: str = Form(...)):

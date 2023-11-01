@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -91,115 +90,129 @@ label {
 }
     </style>
 </head>
-
 <body>
     <div class="container mt-5">
         <h2 class="text-center mb-5"><i class="fas fa-server"></i>Centro de Analíticas del Sistema de Monitoreo Nagios</h2>
         <div class="row">
-
-<!-- Card 1: Uso de Disco con opción ARIMA -->
-<div class="col-md-4 mb-4">
-    <div class="card">
-        <div class="card-header">
-            Disco
-        </div>
-        <div class="card-body text-center">
-            <h5 class="card-title"><i class="fas fa-hdd fa-2x mb-3 text-primary"></i> Uso de Disco</h5>
-            <select class="form-control mb-3" onchange="location = this.value;">
-                <option value="" disabled selected>Seleccione un dispositivo</option>
-                {% for h in hosts %}
-                    <option value="http://192.168.50.45:8000/visualize_disk?host={{ h }}">{{ h }}</option>
-                {% endfor %}
-            </select>
-            <a href="/visualize_arima_disk" class="btn btn-primary btn-block">Predicción ARIMA</a>
-        </div>
-    </div>
-</div>
-
-<!-- Card 2: Uso de Memoria RAM con opción ARIMA -->
-<div class="col-md-4 mb-4">
-    <div class="card">
-        <div class="card-header">
-            RAM
-        </div>
-        <div class="card-body text-center">
-            <h5 class="card-title"><i class="fas fa-memory fa-2x mb-3 text-primary"></i> Uso de Memoria RAM</h5>
-            <select class="form-control mb-3" onchange="location = this.value;">
-                <option value="" disabled selected>Seleccione un dispositivo</option>
-                {% for h in hosts %}
-                    <option value="http://192.168.50.45:8000/visualize_ram?host={{ h }}">{{ h }}</option>
-                {% endfor %}
-            </select>
-            <a href="/visualize_arima_ram" class="btn btn-primary btn-block">Predicción ARIMA</a>
-        </div>
-    </div>
-</div>
-
-<!-- Card 3: Uso de CPU con opción ARIMA -->
-<div class="col-md-4 mb-4">
-    <div class="card">
-        <div class="card-header">
-            CPU
-        </div>
-        <div class="card-body text-center">
-            <h5 class="card-title"><i class="fas fa-microchip fa-2x mb-3 text-primary"></i> Uso de CPU</h5>
-            <select class="form-control mb-3" onchange="location = this.value;">
-                <option value="" disabled selected>Seleccione un dispositivo</option>
-                {% for h in hosts %}
-                    <option value="http://192.168.50.45:8000/visualize_cpu?host={{ h }}">{{ h }}</option>
-                {% endfor %}
-            </select>
-            <a href="/visualize_arima_cpu" class="btn btn-primary btn-block">Predicción ARIMA</a>
-        </div>
-    </div>
-</div>
-
-<!-- Card 1: Uso de Disco con opción ARIMA -->
-<div class="col-md-4 mb-4">
-    <div class="card">
-        <div class="card-header">
-            Interfaz De Red
-        </div>
-        <div class="card-body text-center">
-            <h5 class="card-title"><i class="fas fa-hdd fa-2x mb-3 text-primary"></i> Uso de Interfaz</h5>
-            <select class="form-control mb-3" onchange="location = this.value;">
-                <option value="" disabled selected>Seleccione un dispositivo</option>
-                {% for h in hosts %}
-                    <option value="http://192.168.50.45:8000/visualize_interfazred?host={{ h }}">{{ h }}</option>
-                {% endfor %}
-            </select>
-            <a href="/visualize_arima_interfazred" class="btn btn-primary btn-block">Predicción ARIMA</a>
-        </div>
-    </div>
-</div>
-
-<!-- Card 4: Predicción del Sistema -->
-<div class="col-md-4 mb-4">
-    <div class="card">
-        <div class="card-header">
-            Predicción
-        </div>
-        <div class="card-body text-center">
-            <h5 class="card-title"><i class="fas fa-chart-line fa-2x mb-3 text-primary"></i> Predicción del Sistema</h5>
-            <a href="/predict_system_page" class="btn btn-primary btn-block">Acceder</a>
-        </div>
-    </div>
-</div>
-
-<!-- Card 5: Sistema Nagios -->
-<div class="col-md-4 mb-4">
-    <div class="card">
-        <div class="card-header">
-            Nagios
-        </div>
-        <div class="card-body text-center">
-            <h5 class="card-title"><i class="fas fa-network-wired fa-2x mb-3 text-primary"></i> Sistema Nagios</h5>
-            <a href="http://192.168.50.83/nagios/" target="_blank" class="btn btn-primary btn-block">Acceder</a>
-        </div>
-    </div>
-</div>
+            <!-- Card 1: Uso de Disco con opción ARIMA  -->
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        Disco
+                    </div>
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><i class="fas fa-hdd fa-2x mb-3 text-primary"></i> Uso de Disco</h5>
+                        <select class="form-control mb-3 host-select" id="select-disco" onchange="visualizeLoad('disk', this.value)">
+                            <option value="" disabled selected>Seleccione un dispositivo</option>
+                            {% for h in hosts %}
+                                <option value="{{ h }}">{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                        <a href="#" class="btn btn-primary btn-block arima-predict" data-type="disk">Predicción ARIMA</a>
+                    </div>
+                </div>
+            </div>
+                <!-- Card 2: Uso de Memoria RAM con opción ARIMA -->
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            RAM
+                        </div>
+                        <div class="card-body text-center">
+                            <h5 class="card-title"><i class="fas fa-hdd fa-2x mb-3 text-primary"></i> Uso de Memoria RAM</h5>
+                            <select class="form-control mb-3 host-select" id="select-memoria" onchange="visualizeLoad('ram', this.value)">
+                                <option value="" disabled selected>Seleccione un dispositivo</option>
+                                {% for h in hosts %}
+                                    <option value="{{ h }}">{{ h }}</option>
+                                {% endfor %}
+                            </select>
+                            <a href="#" class="btn btn-primary btn-block arima-predict" data-type="ram">Predicción ARIMA</a>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 3: Uso de CPU con opción ARIMA -->
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            CPU
+                        </div>
+                        <div class="card-body text-center">
+                            <h5 class="card-title"><i class="fas fa-microchip fa-2x mb-3 text-primary"></i> Uso de CPU</h5>
+                            <select class="form-control mb-3 host-select" id="select-cpu" onchange="visualizeLoad('cpu', this.value)">
+                                <option value="" disabled selected>Seleccione un dispositivo</option>
+                                {% for h in hosts %}
+                                    <option value="{{ h }}">{{ h }}</option>
+                                {% endfor %}
+                            </select>
+                            <a href="#" class="btn btn-primary btn-block arima-predict" data-type="disk">Predicción ARIMA</a>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 4: Uso de Interaz con opción ARIMA -->
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            Interfaz De Red
+                        </div>
+                        <div class="card-body text-center">
+                            <h5 class="card-title"><i class="fas fa-ethernet fa-2x mb-3 text-primary"></i> Uso de Interfaz Red</h5>
+                            <select class="form-control mb-3 host-select" id="select-interfaz" onchange="visualizeLoad('interfazred', this.value)">
+                                <option value="" disabled selected>Seleccione un dispositivo</option>
+                                {% for h in hosts %}
+                                    <option value="{{ h }}">{{ h }}</option>
+                                {% endfor %}
+                            </select>
+                            <a href="#" class="btn btn-primary btn-block arima-predict" data-type="interfazred">Predicción ARIMA</a>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 4: Predicción del Sistema -->
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            Predicción
+                        </div>
+                        <div class="card-body text-center">
+                            <h5 class="card-title"><i class="fas fa-chart-line fa-2x mb-3 text-primary"></i> Predicción del Sistema</h5>
+                            <a href="/predict_system_page" class="btn btn-primary btn-block">Acceder</a>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 5: Sistema Nagios -->
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            Nagios
+                        </div>
+                        <div class="card-body text-center">
+                            <h5 class="card-title"><i class="fas fa-network-wired fa-2x mb-3 text-primary"></i> Sistema Nagios</h5>
+                            <a href="http://192.168.50.83/nagios/" target="_blank" class="btn btn-primary btn-block">Acceder</a>
+                        </div>
+                    </div>
+                </div>
 
         </div>
     </div>
+
+    <script>
+        function visualizeLoad(type, host) {
+            if (host) {
+                window.location.href = `http://192.168.50.45:8000/visualize_${type}?host=${host}`;
+            }
+        }
+        document.querySelectorAll('.arima-predict').forEach(button => {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Previene el comportamiento por defecto del enlace
+                var hostSelect = this.closest('.card').querySelector('.host-select');
+                var host = hostSelect.value;
+                var metricType = this.getAttribute('data-type');
+                if (host) {
+                    window.location.href = `http://192.168.50.45:8000/visualize_arima_${metricType}?host=${host}`;
+                } else {
+                        alert('Por favor, seleccione un dispositivo');
+                    }
+                });
+            });
+</script>  
 </body>
 </html>
